@@ -56,7 +56,8 @@ ConVar cl_viewmodel_hltv("cl_viewmodel_hltv", "0", FCVAR_BHL_ARCHIVE,
     "   7 - disables all above but reloading\n"
     "  15 - disables all listed above");
 extern ConVar cl_righthand;
-
+ConVar r_extrachrome("r_extrachrome", "1", FCVAR_BHL_ARCHIVE, "More fancy chrome render modes, 0 disable");
+ConVar r_transparentviewmodel("r_transparentviewmodel", "0", FCVAR_BHL_ARCHIVE, "Transparent (additive) view model");
 namespace
 {
 enum ViewmodelHLTV
@@ -1673,28 +1674,35 @@ StudioRenderModel
 */
 void CStudioModelRenderer::StudioRenderModel(void)
 {
-	IEngineStudio.SetChromeOrigin();
-	IEngineStudio.SetForceFaceFlags(0);
-
-	if (m_pCurrentEntity->curstate.renderfx == kRenderFxGlowShell)
+	if (!CVAR_GET_FLOAT("r_extrachrome"))
 	{
-		m_pCurrentEntity->curstate.renderfx = kRenderFxNone;
-		StudioRenderFinal();
+		IEngineStudio.SetChromeOrigin();
+		IEngineStudio.SetForceFaceFlags(0);
 
-		if (!IEngineStudio.IsHardware())
+		if (m_pCurrentEntity->curstate.renderfx == kRenderFxGlowShell)
 		{
-			gEngfuncs.pTriAPI->RenderMode(kRenderTransAdd);
+			m_pCurrentEntity->curstate.renderfx = kRenderFxNone;
+			StudioRenderFinal();
+
+			if (!IEngineStudio.IsHardware())
+			{
+				gEngfuncs.pTriAPI->RenderMode(kRenderTransAdd);
+			}
+
+			IEngineStudio.SetForceFaceFlags(STUDIO_NF_CHROME);
+
+			gEngfuncs.pTriAPI->SpriteTexture(m_pChromeSprite, 0);
+			m_pCurrentEntity->curstate.renderfx = kRenderFxGlowShell;
+
+			StudioRenderFinal();
+			if (!IEngineStudio.IsHardware())
+			{
+				gEngfuncs.pTriAPI->RenderMode(kRenderNormal);
+			}
 		}
-
-		IEngineStudio.SetForceFaceFlags(STUDIO_NF_CHROME);
-
-		gEngfuncs.pTriAPI->SpriteTexture(m_pChromeSprite, 0);
-		m_pCurrentEntity->curstate.renderfx = kRenderFxGlowShell;
-
-		StudioRenderFinal();
-		if (!IEngineStudio.IsHardware())
+		else
 		{
-			gEngfuncs.pTriAPI->RenderMode(kRenderNormal);
+			StudioRenderFinal();
 		}
 	}
 	else
@@ -1832,6 +1840,21 @@ void CStudioModelRenderer::StudioRenderFinal_Hardware(void)
 	{
 		IEngineStudio.StudioDrawAbsBBox();
 	}
+
+	if (CVAR_GET_FLOAT("r_extrachrome") == 2)
+	{
+		gEngfuncs.GetViewModel()->curstate.renderfx = kRenderFxGlowShell;
+	}
+	else
+	{
+		gEngfuncs.GetViewModel()->curstate.renderfx = kRenderFxNone;
+	}
+	if (CVAR_GET_FLOAT("r_transparentviewmodel"))
+	{
+		gEngfuncs.GetViewModel()->curstate.rendermode = kRenderTransAdd;
+	}
+	else
+		gEngfuncs.GetViewModel()->curstate.rendermode = kRenderNormal;
 
 	IEngineStudio.RestoreRenderer();
 }
